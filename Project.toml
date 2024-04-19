@@ -1,0 +1,9 @@
+name = "ModelFlatten"
+uuid = "99da26a0-9061-4147-960d-65978c0fa4a2"
+authors = ["AxLamelas <alamelas@ua.pt>"]
+version = "0.1.0"
+
+[deps]
+Bijectors = "76274a88-744f-5084-9051-94815aaf08c4"
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
