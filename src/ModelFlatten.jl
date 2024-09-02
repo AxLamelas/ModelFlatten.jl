@@ -58,16 +58,14 @@ function flatten(x::ParameterLike)
     return x, unflatten
 end
 
-function flatten(x::Distribution)
-    # unflatten only works of samples from the distribution
-    l = length(x)
-    if l == 1
-        unflatten_single(v) = only(v)
-        return x, unflatten_single
-    end
+function flatten(x::Distribution{Univariate})
+    unflatten_univariate(v) = only(v)
+    return x, unflatten_univariate
+end
 
-    unflatten(v) = v[1:l]
-    return x, unflatten
+function flatten(x::Distribution{Multivariate})
+    unflatten_multvariate(v) = v[1:length(x)]
+    return x, unflatten_multvariate
 end
 
 function flatten(x::AbstractArray) 
