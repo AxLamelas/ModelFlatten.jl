@@ -11,30 +11,56 @@ using Bijectors: Bijector, TruncatedBijector, Stacked, inverse
 
 export UnboundedBijector, vector_and_transformation, TruncatedBijector, setup_transforms
 
-
 const UnboundedBijector{T} = TruncatedBijector{T,T}
 
 function UnboundedBijector(::Type{T}) where {T <: Number}
     return Bijectors.TruncatedBijector(typemin(T),typemax(T))
 end
 
-const ArrayParameter{T,B} = Tuple{A,B} where {T <: Number, A <: AbstractArray{T}, B <: Bijector}
-const Parameter{T,B} = Tuple{T,B} where {T <: Number, B <: Bijector}
-Base.length(x::Parameter) = length(x[1])
-Base.show(io::IO, p::Parameter) = print(io,"P[$(p[1])]")
-Bijectors.bijector(x::Parameter) = x[2]
-value(x::Parameter) = x[1]
+Base.minimum(b::Bijectors.TruncatedBijector) = b.lb
+Base.maximum(b::Bijectors.TruncatedBijector) = b.ub
+Base.minimum(b::Bijectors.TruncatedBijector{<:AbstractFloat,<:Any}) = if isinf(b.lb)
+    nextfloat(b.lb)
+else
+    b.lb
+end
+Base.maximum(b::Bijectors.TruncatedBijector{<:Any,<:AbstractFloat}) = if isinf(b.ub)
+    prevfloat(b.ub)
+else
+    b.ub
+end
+
+
+abstract type AbstractParameter end
+
+struct ArrayParameter{A<:AbstractArray{<:Number},B <: Bijector} <: AbstractParameter
+    value::A
+    bijector::B
+end
+
+struct Parameter{T,B} <: AbstractParameter
+    value::T
+    bijector::B
+end
+
+Bijectors.bijector(x::AbstractParameter) = x.bijector
+value(x::AbstractParameter) = x.value
+Base.length(x::AbstractParameter) = length(value(x))
+Base.show(io::IO, p::AbstractParameter) = print(io,"P[$(value(p))]")
+Base.iterate(x::AbstractParameter) = (x,nothing)
+Base.iterate(::AbstractParameter,::Nothing) = nothing
+# Base.Broadcast.broadcastable(x::AbstractParameter) = (x,)
 
 # Base.length(x::Dirichlet) = length(x.alpha)
 
-const ParameterLike = Union{ArrayParameter, Parameter,Distribution,Bijector}
+const ParameterLike = Union{<:AbstractParameter,Distribution,Bijector}
 
 @inline wrap(x) = if x isa ParameterLike
     (x,)
 else
     x
 end
-@inline tuplejoin(x) = x
+@inline tuplejoin(x) = wrap(x)
 @inline tuplejoin(x, y) = (wrap(x)...,wrap(y)...)
 @inline tuplejoin(x, y, z...) = (wrap(x)..., tuplejoin(y, z...)...)
 
