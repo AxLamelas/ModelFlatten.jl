@@ -55,7 +55,7 @@ Base.iterate(::AbstractParameter,::Nothing) = nothing
 
 const ParameterLike = Union{<:AbstractParameter,Distribution,Bijector}
 
-@inline wrap(x) = if x isa ParameterLike
+@inline wrap(x) = if x isa ParameterLike || !applicable(iterate,x)
     (x,)
 else
     x
@@ -66,36 +66,47 @@ end
 
 function _length(x)
     return if !applicable(iterate,x) 
-        length(x)
+        if !applicable(length,x)
+            1
+        else
+            length(x)
+        end
     elseif isempty(x)
         0
+    elseif x isa Number
+        return 1
     else
-        sum(length(xi) for xi in x)
+        sum(!applicable(length,xi) ? 1 : length(xi) for xi in x)
     end
 end
 
-function flatten(x)
-    unflatten_Fixed(_) = x
-    return () , unflatten_Fixed
+function flatten(x,exclude_fixed::Bool)
+    if exclude_fixed
+        unflatten_Fixed(_) = x
+        return (), unflatten_Fixed
+    else
+        unflatten(v) = only(v)
+        return x, unflatten
+    end
 end
 
-function flatten(x::ParameterLike)
+function flatten(x::ParameterLike,exclude_fixed::Bool)
     unflatten(v) = only(v)
     return x, unflatten
 end
 
-function flatten(x::Distribution{Univariate})
+function flatten(x::Distribution{Univariate},exclude_fixed::Bool)
     unflatten_univariate(v) = only(v)
     return x, unflatten_univariate
 end
 
-function flatten(x::Distribution{Multivariate})
+function flatten(x::Distribution{Multivariate},exclude_fixed::Bool)
     unflatten_multvariate(v) = v[1:length(x)]
     return x, unflatten_multvariate
 end
 
-function flatten(x::AbstractArray) 
-    x_vecs_and_backs = map(val -> flatten(val), x)
+function flatten(x::AbstractArray,exclude_fixed::Bool) 
+    x_vecs_and_backs = map(val -> flatten(val,exclude_fixed), x)
     x_vecs, x_backs = first.(x_vecs_and_backs), last.(x_vecs_and_backs)
     lengths = reshape(map(_length,x_vecs),:)
     sz = cumsum(lengths)
@@ -108,8 +119,8 @@ function flatten(x::AbstractArray)
 end
 
 
-function flatten(x::AbstractVector) 
-    x_vecs_and_backs = map(val -> flatten(val), x)
+function flatten(x::AbstractVector,exclude_fixed::Bool) 
+    x_vecs_and_backs = map(val -> flatten(val,exclude_fixed), x)
     x_vecs, x_backs = first.(x_vecs_and_backs), last.(x_vecs_and_backs)
     lengths = map(_length,x_vecs)
     sz = cumsum(lengths)
@@ -121,8 +132,8 @@ function flatten(x::AbstractVector)
     return tuplejoin(x_vecs...), unflatten_to_vec
 end
 
-function flatten(x::Tuple) 
-    x_vecs_and_backs = map(val -> flatten(val), x)
+function flatten(x::Tuple,exclude_fixed::Bool) 
+    x_vecs_and_backs = map(val -> flatten(val,exclude_fixed), x)
     x_vecs, x_backs = first.(x_vecs_and_backs), last.(x_vecs_and_backs)
     lengths = map(_length,x_vecs)
     sz = cumsum(lengths)
@@ -134,14 +145,17 @@ function flatten(x::Tuple)
     return tuplejoin(x_vecs...), unflatten_to_Tuple
 end
 
-function flatten(x::NamedTuple{N}) where {N}
-    x_vec, unflatten = flatten(values(x))
+function flatten(x::NamedTuple{N},exclude_fixed::Bool) where {N}
+    x_vec, unflatten = flatten(values(x),exclude_fixed)
     function unflatten_to_NamedTuple(v)
         v_vec_vec = unflatten(v)
         return NamedTuple{N}(v_vec_vec)
     end
     return x_vec, unflatten_to_NamedTuple
 end
+
+flatten(x) = flatten(x,true)
+
 
 function vector_and_transformation(θ0::NTuple{N,T}) where {N,T <: Union{Parameter,ArrayParameter}}
     bijectors = bijector.(θ0)
@@ -159,8 +173,10 @@ function vector(θ0::NTuple{N,T}) where {N,T <: Union{Parameter,ArrayParameter}}
     return to_unconstrained(vcat(value.(θ0)...))
 end
 
-function setup_transforms(priors::NamedTuple)
-    bs = bijector.(values(priors))
+setup_transforms(priors::NamedTuple) = setup_transforms(flatten(priors)[1]...)
+
+function setup_transforms(priors...)
+    bs = bijector.(priors)
     ranges = UnitRange{Int64}[]
     idx = 1
     for p in priors
