@@ -43,6 +43,16 @@ struct Parameter{T,B} <: AbstractParameter
     bijector::B
 end
 
+function Parameter(x,lb,ub)
+    a,b,c = promote(x,lb,ub)
+    Parameter(a,TruncatedBijector(b,c))
+end
+
+function ArrayParameter(x::AbstractArray{T},lb,ub) where {T}
+    _,b,c = promote(zero(T),lb,ub)
+    ArrayParameter(typeof(b).(x),TruncatedBijector(b,c))
+end
+
 Bijectors.bijector(x::AbstractParameter) = x.bijector
 value(x::AbstractParameter) = x.value
 Base.length(x::AbstractParameter) = length(value(x))
@@ -60,6 +70,8 @@ const ParameterLike = Union{<:AbstractParameter,Distribution,Bijector}
 else
     x
 end
+
+
 @inline tuplejoin(x) = wrap(x)
 @inline tuplejoin(x, y) = (wrap(x)...,wrap(y)...)
 @inline tuplejoin(x, y, z...) = (wrap(x)..., tuplejoin(y, z...)...)
@@ -176,7 +188,7 @@ end
 setup_transforms(priors::NamedTuple) = setup_transforms(flatten(priors)[1]...)
 
 function setup_transforms(priors...)
-    bs = bijector.(priors)
+    bs = map(bijector,priors)
     ranges = UnitRange{Int64}[]
     idx = 1
     for p in priors
@@ -185,10 +197,10 @@ function setup_transforms(priors...)
         idx += len
     end
 
-    sb = Stacked(bs, ranges)
+    sb = Stacked(Tuple(bs), Tuple(ranges))
     isb = inverse(sb)
 
-    return sb, isb
+    return sb,isb
 end
 
 
