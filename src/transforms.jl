@@ -27,7 +27,7 @@ function Bijectors.bijector(d::ContinuousMultivariateDistribution)
     return Stacked([TruncatedBijector(mi,Mi) for (mi,Mi) in zip(m,M)])
 end
 
-setup_transforms(priors::NamedTuple) = setup_transforms(flatten(priors)[1]...)
+setup_transforms(priors::NamedTuple) = setup_transforms(flatten(priors)...)
 
 function setup_transforms(priors...)
     bs = map(bijector,priors)
