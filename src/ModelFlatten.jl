@@ -2,6 +2,7 @@ module ModelFlatten
 
 export flatten, Descriptor, Fixed
 export UnboundedBijector, TruncatedBijector, setup_transforms
+export Parameter, value
 
 using Reexport
 
@@ -12,6 +13,7 @@ const TupleLike = Union{Tuple,NamedTuple}
 
 include("descriptor.jl")
 include("transforms.jl")
+include("parameter.jl")
 
 function flatten(nt::TupleLike)
   vcat((if v isa TupleLike

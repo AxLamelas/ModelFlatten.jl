@@ -44,15 +44,17 @@ function reconstruct(::Type{W},info::TupleLike,x::AbstractVector{T}) where {W,T}
   end for (i,v) in enumerate(values(info)))
 end
 
-create_info(nt::NamedTuple) = last(create_info(0,nt))
+create_info(nt::NamedTuple) = last(_create_info(nt))
 
 
-function create_info(offset::Int,nt::NamedTuple)
+function _create_info(nt::NamedTuple)
+  offset = 0
   data = []
   for v in values(nt)
     if v isa TupleLike
-      l, interior = create_info(offset,v)
+      l, interior = _create_info(v)
       push!(data,(Indicator(offset,l),interior))
+      offset += l
     elseif v isa Fixed
       push!(data,v)
     else
@@ -64,12 +66,14 @@ function create_info(offset::Int,nt::NamedTuple)
   return offset, NamedTuple{keys(nt)}(data)
 end
 
-function create_info(offset::Int,nt::Tuple)
+function _create_info(nt::Tuple)
+  offset = 0
   data = []
   for v in values(nt)
     if v isa TupleLike
-      l, interior = create_info(offset,v)
+      l, interior = _create_info(V)
       push!(data,(Indicator(offset,l),interior))
+      offset += l
     elseif v isa Fixed
       push!(data,v)
     else

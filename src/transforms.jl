@@ -20,6 +20,29 @@ else
     b.ub
 end
 
+function Base.minimum(b::Bijectors.Stacked)
+    vcat((begin
+        m = minimum(b)
+        if length(m) == length(r)
+            m
+        else
+            fill(m,length(r))
+        end
+    end for (r,b) in zip(b.ranges_in,b.bs))...)
+end
+
+function Base.maximum(b::Bijectors.Stacked)
+    vcat((begin
+        m = maximum(b)
+        if length(m) == length(r)
+            m
+        else
+            fill(m,length(r))
+        end
+    end for (r,b) in zip(b.ranges_in,b.bs))...)
+end
+
+
 function Bijectors.bijector(d::ContinuousMultivariateDistribution)
     m = minimum(d)
     M = maximum(d)
@@ -27,14 +50,14 @@ function Bijectors.bijector(d::ContinuousMultivariateDistribution)
     return Stacked([TruncatedBijector(mi,Mi) for (mi,Mi) in zip(m,M)])
 end
 
-setup_transforms(priors::NamedTuple) = setup_transforms(flatten(priors)...)
+setup_transforms(nt::NamedTuple) = setup_transforms(flatten(nt)...)
 
-function setup_transforms(priors...)
-    bs = map(bijector,priors)
+setup_transforms(ps...) = setup_transforms(map(length,ps),map(bijector,ps))
+
+function setup_transforms(lengths,bs)
     ranges = UnitRange{Int64}[]
     idx = 1
-    for p in priors
-        len = length(p)
+    for len in lengths
         push!(ranges, idx:idx+len-1)
         idx += len
     end
