@@ -53,7 +53,7 @@ end
 
 setup_transforms(nt::NamedTuple) = setup_transforms(flatten(nt)...)
 
-setup_transforms(ps...) = (println(ps) ; setup_transforms(map(length,ps),map(bijector,ps)))
+setup_transforms(ps...) = setup_transforms(map(length,ps),map(bijector,ps))
 
 function setup_transforms(lengths::AbstractVecOrTuple{Int},bs)
     ranges = UnitRange{Int64}[]
