@@ -15,6 +15,8 @@ function Parameter(val::T) where {T<:Number}
   Parameter(val,TruncatedBijector(typemin(T),typemax(T)))
 end
 
+Parameter(val::T;lb=typemin(T),ub=typemax(T)) where T = Parameter(val,lb,ub)
+
 value(p::Parameter) = p.val
 Bijectors.bijector(p::Parameter) = p.bijector
 

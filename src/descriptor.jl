@@ -2,9 +2,17 @@ struct Fixed{T}
   val::T
 end
 
+const FixedLike = Union{Dirac,Fixed}
+
 struct Indicator
   offset::Int
   length::Int
+end
+
+struct ArrayIndicator{D}
+  offset::Int
+  length::Int
+  size::NTuple{D,Int}
 end
 
 
@@ -16,6 +24,12 @@ function Descriptor(nt::NamedTuple)
   info = create_info(nt)
   NT = create_type(nt)
   return Descriptor{NT,typeof(info)}(info)
+end
+
+function Base.length(desc::Descriptor)
+  v = first(Iterators.filter( x -> !(x isa Fixed),Iterators.reverse(desc.info)))
+  ind = v isa Tuple ? v[1] : v
+  return ind.length + ind.offset 
 end
 
 function (d::Descriptor{NT})(x::AbstractVector{T}) where{NT,T}
@@ -33,6 +47,8 @@ function reconstruct(::Type{W},info::TupleLike,x::AbstractVector{T}) where {W,T}
     else
       view(x,v.offset+1:v.offset+v.length)
     end
+  elseif v isa ArrayIndicator
+    reshape(view(x,v.offset+1:v.offset+v.length),v.size)
   elseif v isa Fixed
     v.val
   else
@@ -57,6 +73,11 @@ function _create_info(nt::NamedTuple)
       offset += l
     elseif v isa Fixed
       push!(data,v)
+    elseif v isa Dirac
+      push!(data,Fixed(v.value))
+    elseif v isa AbstractArray
+      push!(data,ArrayIndicator(offset,length(v),size(v)))
+      offset += length(v)
     else
       push!(data,Indicator(offset,length(v)))
       offset += length(v)
@@ -71,11 +92,16 @@ function _create_info(nt::Tuple)
   data = []
   for v in values(nt)
     if v isa TupleLike
-      l, interior = _create_info(V)
+      l, interior = _create_info(v)
       push!(data,(Indicator(offset,l),interior))
       offset += l
     elseif v isa Fixed
       push!(data,v)
+    elseif v isa Dirac
+      push!(data,Fixed(v.value))
+    elseif v isa AbstractArray
+      push!(data,ArrayIndicator(offset,length(v),size(v)))
+      offset += length(v)
     else
       push!(data,Indicator(offset,length(v)))
       offset += length(v)
@@ -96,6 +122,14 @@ function _create_type(nt::NamedTuple)
       _create_type(v)
     elseif v isa Fixed
       typeof(v.val)
+    elseif v isa Dirac
+      typeof(v.value)
+    elseif v isa AbstractArray
+      if isone(ndims(v))
+        :(SubArray{W,1,Vector{W},Tuple{UnitRange{Int64}},true})
+      else
+        :(Base.ReshapedArray{W,$(ndims(v)),SubArray{W,1,Vector{W},Tuple{UnitRange{Int64}},true},Tuple{}})
+      end
     else
     if length(v) == 1
       :W 
@@ -116,6 +150,14 @@ function _create_type(nt::Tuple)
       _create_type(v)
     elseif v isa Fixed
       typeof(v.val)
+    elseif v isa Dirac
+      typeof(v.value)
+    elseif v isa AbstractArray
+      if isone(ndims(v))
+        :(SubArray{W,1,Vector{W},Tuple{UnitRange{Int64}},true})
+      else
+        :(Base.ReshapedArray{W,$(ndims(v)),SubArray{W,1,Vector{W},Tuple{UnitRange{Int64}},true},Tuple{}})
+      end
     else
     if length(v) == 1
       :W 
@@ -128,4 +170,19 @@ function _create_type(nt::Tuple)
 
 
   return t
+end
+
+flat_eltype(desc::Descriptor,nt::TupleLike) = _flat_eltype(desc.info,nt)
+
+function _flat_eltype(info::TupleLike,nt::TupleLike)
+  types = ((begin
+    v = getproperty(nt,k)
+    if v isa TupleLike
+      _flat_eltype(getproperty(info,k)[2],v)
+    else
+      eltype(v)
+    end
+  end for k in keys(info))...,)
+
+  promote_type(types...)
 end
