@@ -32,12 +32,14 @@ function Base.length(desc::Descriptor)
   return ind.length + ind.offset 
 end
 
-function (d::Descriptor{NT})(x::AbstractVector{T}) where{NT,T}
-  reconstruct(NT{T},d.info,x)
-end
+(d::Descriptor)(x) = reconstruct(d,x)
 
 function reconstruct(d::Descriptor{NT},x::AbstractVector{T}) where {NT,T}
-  reconstruct(NT{T},d.info,x)
+  reconstruct(NT{T,1,Vector{T},Tuple{UnitRange{Int64}},true},d.info,x)
+end
+
+function reconstruct(d::Descriptor{NT},x::SubArray{T,N,P,I,L}) where {NT,T,N,P,I,L}
+  reconstruct(NT{T,N,P,Tuple{UnitRange{Int64},Int64},L},d.info,x)
 end
 
 function reconstruct(::Type{W},info::TupleLike,x::AbstractVector{T}) where {W,T}
@@ -48,7 +50,7 @@ function reconstruct(::Type{W},info::TupleLike,x::AbstractVector{T}) where {W,T}
       view(x,v.offset+1:v.offset+v.length)
     end
   elseif v isa ArrayIndicator
-    reshape(view(x,v.offset+1:v.offset+v.length),v.size)
+      reshape(view(x,v.offset+1:v.offset+v.length),v.size)
   elseif v isa Fixed
     v.val
   else
@@ -75,7 +77,7 @@ function _create_info(nt::NamedTuple)
       push!(data,v)
     elseif v isa Dirac
       push!(data,Fixed(v.value))
-    elseif v isa AbstractArray
+    elseif v isa AbstractArray || v isa MultivariateDistribution
       push!(data,ArrayIndicator(offset,length(v),size(v)))
       offset += length(v)
     else
@@ -99,7 +101,7 @@ function _create_info(nt::Tuple)
       push!(data,v)
     elseif v isa Dirac
       push!(data,Fixed(v.value))
-    elseif v isa AbstractArray
+    elseif v isa AbstractArray || v isa MultivariateDistribution
       push!(data,ArrayIndicator(offset,length(v),size(v)))
       offset += length(v)
     else
@@ -113,7 +115,7 @@ end
 
 function create_type(nt::NamedTuple)
   t = _create_type(nt)
-  return Meta.eval(:($(t) where {W}))
+  return Meta.eval(:($(t) where {W,N,P,I,L}))
 end
 
 function _create_type(nt::NamedTuple)
@@ -126,15 +128,17 @@ function _create_type(nt::NamedTuple)
       typeof(v.value)
     elseif v isa AbstractArray
       if isone(ndims(v))
-        :(SubArray{W,1,Vector{W},Tuple{UnitRange{Int64}},true})
+        :(SubArray{W,N,P,I,L})
       else
-        :(Base.ReshapedArray{W,$(ndims(v)),SubArray{W,1,Vector{W},Tuple{UnitRange{Int64}},true},Tuple{}})
+        :(Base.ReshapedArray{W,$(ndims(v)),SubArray{W,N,P,I,L},Tuple{}})
       end
+    elseif v isa MultivariateDistribution
+        :(SubArray{W,N,P,I,L})
     else
     if length(v) == 1
       :W 
     else
-        :(SubArray{W,1,Vector{W},Tuple{UnitRange{Int64}},true})
+        :(SubArray{W,N,P,I,L})
     end
     end
     for v in values(nt))...
@@ -154,15 +158,15 @@ function _create_type(nt::Tuple)
       typeof(v.value)
     elseif v isa AbstractArray
       if isone(ndims(v))
-        :(SubArray{W,1,Vector{W},Tuple{UnitRange{Int64}},true})
+        :(SubArray{W,N,P,I,L})
       else
-        :(Base.ReshapedArray{W,$(ndims(v)),SubArray{W,1,Vector{W},Tuple{UnitRange{Int64}},true},Tuple{}})
+        :(Base.ReshapedArray{W,$(ndims(v)),SubArray{W,N,P,I,L},Tuple{}})
       end
     else
     if length(v) == 1
       :W 
     else
-        :(SubArray{W,1,Vector{W},Tuple{UnitRange{Int64}},true})
+        :(SubArray{W,N,P,I,L})
     end
     end
     for v in nt)...
