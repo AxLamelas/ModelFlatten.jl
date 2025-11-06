@@ -36,6 +36,8 @@ flatten!(r::AbstractVector,desc::Descriptor,nt::TupleLike) = _flatten!(r,desc.in
 
 function _flatten!(r::AbstractVector,info::TupleLike,nt::TupleLike)
   for (k,info_v) in pairs(info)
+    # If it is a FixedLike nothing is done
+    if info_v isa Fixed continue end
     v = getproperty(nt,k)
     if info_v isa TupleLike
       ind,info_subset = info_v
@@ -43,7 +45,7 @@ function _flatten!(r::AbstractVector,info::TupleLike,nt::TupleLike)
     elseif info_v isa Union{Indicator,ArrayIndicator}
       ind = info_v
       r[1+ind.offset:ind.offset+ind.length] .= v
-    # If it is a FixedLike nothing is done
+
     end
   end
 end

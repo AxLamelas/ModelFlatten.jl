@@ -35,31 +35,50 @@ end
 (d::Descriptor)(x) = reconstruct(d,x)
 
 function reconstruct(d::Descriptor{NT},x::AbstractVector{T}) where {NT,T}
-  reconstruct(NT{T,1,Vector{T},Tuple{UnitRange{Int64}},true},d.info,x)
+  if typeof(NT.body) <: DataType
+    # Occurs when all flatten parameters are not arrays
+    reconstruct(NT{T},d.info,x)
+  else
+    reconstruct(NT{T,1,Vector{T},Tuple{UnitRange{Int64}},true},d.info,x)
+  end
 end
 
 function reconstruct(d::Descriptor{NT},x::SubArray{T,N,P,I,L}) where {NT,T,N,P,I,L}
-  reconstruct(NT{T,N,P,Tuple{UnitRange{Int64},Int64},L},d.info,x)
+  if typeof(NT.body) <: DataType
+    # Occurs when all flatten parameters are not arrays
+    reconstruct(NT{T},d.info,x)
+  else
+    reconstruct(NT{T,N,P,Tuple{UnitRange{Int64},Int64},L},d.info,x)
+  end
 end
 
 function reconstruct(::Type{W},info::TupleLike,x::AbstractVector{T}) where {W,T}
-  W(if v isa Indicator
-    if v.length == 1
-      x[v.offset+1]
-    else
-      view(x,v.offset+1:v.offset+v.length)
-    end
-  elseif v isa ArrayIndicator
+  W(
+    if v isa Indicator
+      if v.length == 1
+        x[v.offset+1]
+      else
+        view(x,v.offset+1:v.offset+v.length)
+      end
+    elseif v isa ArrayIndicator
       reshape(view(x,v.offset+1:v.offset+v.length),v.size)
-  elseif v isa Fixed
-    v.val
-  else
-    reconstruct(
-      W.parameters[2].parameters[i],
-      v[2],
-      view(x,v[1].offset+1:v[1].offset+v[1].length)
-    )
-  end for (i,v) in enumerate(values(info)))
+    elseif v isa Fixed
+      v.val
+    else
+      if W <: Tuple
+        reconstruct(
+          W.parameters[i],
+          v[2],
+          view(x,v[1].offset+1:v[1].offset+v[1].length)
+        )
+      else
+        reconstruct(
+          W.parameters[2].parameters[i],
+          v[2],
+          view(x,v[1].offset+1:v[1].offset+v[1].length)
+        )
+      end
+    end for (i,v) in enumerate(values(info)))
 end
 
 create_info(nt::NamedTuple) = last(_create_info(nt))
@@ -186,7 +205,7 @@ function _flat_eltype(info::TupleLike,nt::TupleLike)
     else
       eltype(v)
     end
-  end for k in keys(info))...,)
+  end for (k,info_v) in pairs(info) if !(info_v isa Fixed) )...,)
 
   promote_type(types...)
 end
