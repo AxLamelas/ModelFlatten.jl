@@ -20,6 +20,8 @@ struct Descriptor{NT,I}
   info::I
 end
 
+Descriptor(d::Distributions.ProductNamedTupleDistribution) = Descriptor(d.dists)
+
 function Descriptor(nt::NamedTuple)
   info = create_info(nt)
   NT = create_type(nt)
