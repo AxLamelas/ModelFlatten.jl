@@ -1,6 +1,6 @@
 module ModelFlatten
 
-export flatten, Descriptor, Fixed
+export flatten, Descriptor, Fixed, flat_eltype
 export UnboundedBijector, TruncatedBijector, setup_transforms
 export Parameter, value
 

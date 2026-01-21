@@ -15,6 +15,8 @@ struct ArrayIndicator{D}
   size::NTuple{D,Int}
 end
 
+const IndicatorLike = Union{ArrayIndicator,Indicator,Fixed}
+
 
 struct Descriptor{NT,I}
   info::I
@@ -195,6 +197,18 @@ function _create_type(nt::Tuple)
 
 
   return t
+end
+
+function flat_eltype(nt::TupleLike)
+  types = ((begin
+    if v isa TupleLike
+      flat_eltype(v)
+    else
+      eltype(v)
+    end
+  end for v in values(nt) if !(v isa FixedLike))...,)
+
+  promote_type(types...)
 end
 
 flat_eltype(desc::Descriptor,nt::TupleLike) = _flat_eltype(desc.info,nt)
