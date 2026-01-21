@@ -210,6 +210,7 @@ function flat_eltype(nt::TupleLike)
 
   promote_type(types...)
 end
+flat_eltype(x) = eltype(x)
 
 flat_eltype(desc::Descriptor,nt::TupleLike) = _flat_eltype(desc.info,nt)
 
