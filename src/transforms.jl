@@ -53,6 +53,7 @@ end
 
 setup_transforms(nt::NamedTuple) = setup_transforms(flatten(nt)...)
 
+setup_transforms(d::Distributions.ProductNamedTupleDistribution) = setup_transforms(values(d.dists)...)
 setup_transforms(ps...) = setup_transforms(map(length,ps),map(bijector,ps))
 
 function setup_transforms(lengths::AbstractVecOrTuple{Int},bs)
