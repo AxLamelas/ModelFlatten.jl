@@ -24,6 +24,8 @@ function flatten(nt::TupleLike)
     for v in values(nt) if !(v isa FixedLike))...)
 end
 
+flatten(d::Distributions.ProductNamedTupleDistribution) = flatten(d.dists)
+
 function flatten(desc::Descriptor,nt::TupleLike) 
   T = flat_eltype(desc,nt)
   l = length(desc)

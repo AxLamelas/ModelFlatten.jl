@@ -85,32 +85,7 @@ function reconstruct(::Type{W},info::TupleLike,x::AbstractVector{T}) where {W,T}
     end for (i,v) in enumerate(values(info)))
 end
 
-create_info(nt::NamedTuple) = last(_create_info(nt))
-
-
-function _create_info(nt::NamedTuple)
-  offset = 0
-  data = []
-  for v in values(nt)
-    if v isa TupleLike
-      l, interior = _create_info(v)
-      push!(data,(Indicator(offset,l),interior))
-      offset += l
-    elseif v isa Fixed
-      push!(data,v)
-    elseif v isa Dirac
-      push!(data,Fixed(v.value))
-    elseif v isa AbstractArray || v isa MultivariateDistribution
-      push!(data,ArrayIndicator(offset,length(v),size(v)))
-      offset += length(v)
-    else
-      push!(data,Indicator(offset,length(v)))
-      offset += length(v)
-    end
-  end
-
-  return offset, NamedTuple{keys(nt)}(data)
-end
+create_info(nt::TupleLike) = last(_create_info(nt))
 
 function _create_info(nt::Tuple)
   offset = 0
@@ -133,8 +108,58 @@ function _create_info(nt::Tuple)
     end
   end
 
-  return offset, Tuple(data)
+  return offset, data
 end
+
+function _create_info(nt::NamedTuple)
+  l, interior = _create_info(values(nt))
+  l, NamedTuple{keys(nt)}(interior)
+end
+
+# function _create_info(v1,vr...; offset=0)
+#     if v isa TupleLike
+#       l, interior = _create_info(v)
+#     return ((Indicator(offset,l),interior))
+#       offset += l
+#     elseif v isa Fixed
+#       push!(data,v)
+#     elseif v isa Dirac
+#       push!(data,Fixed(v.value))
+#     elseif v isa AbstractArray || v isa MultivariateDistribution
+#       push!(data,ArrayIndicator(offset,length(v),size(v)))
+#       offset += length(v)
+#     else
+#       push!(data,Indicator(offset,length(v)))
+#       offset += length(v)
+#     end
+#
+# end
+
+# function _create_info(nt::Tuple)
+#   offset = 0
+#   data = Tuple((begin
+#     if v isa TupleLike
+#       l, interior = _create_info(v)
+#       r = (Indicator(offset,l),interior)
+#       offset += l
+#       r
+#     elseif v isa Fixed
+#       v
+#     elseif v isa Dirac
+#       Fixed(v.value)
+#     elseif v isa AbstractArray || v isa MultivariateDistribution
+#       r = ArrayIndicator(offset,length(v),size(v))
+#       offset += length(v)
+#       r
+#     else
+#       r = Indicator(offset,length(v))
+#       offset += length(v)
+#       r
+#     end
+#   end for v in values(nt)))
+#
+#   return offset, data
+# end
 
 function create_type(nt::NamedTuple)
   t = _create_type(nt)
@@ -168,7 +193,7 @@ function _create_type(nt::NamedTuple)
   )})
 
 
-  return :(NamedTuple{$(Tuple(keys(nt))),$(t)}) 
+  return :(NamedTuple{$(Tuple(keys(nt))),$(t)})
 end
 
 function _create_type(nt::Tuple)
