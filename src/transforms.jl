@@ -44,12 +44,12 @@ function Base.maximum(b::Bijectors.Stacked)
 end
 
 
-function Bijectors.bijector(d::ContinuousMultivariateDistribution)
-    m = minimum(d)
-    M = maximum(d)
-
-    return Stacked([TruncatedBijector(mi,Mi) for (mi,Mi) in zip(m,M)])
-end
+# function Bijectors.bijector(d::ContinuousMultivariateDistribution)
+#     m = minimum(d)
+#     M = maximum(d)
+#
+#     return Stacked([TruncatedBijector(mi,Mi) for (mi,Mi) in zip(m,M)])
+# end
 
 setup_transforms(nt::NamedTuple) = setup_transforms(flatten(nt)...)
 
